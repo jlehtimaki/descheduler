@@ -1,0 +1,94 @@
+---
+kind: pipeline
+type: kubernetes
+name: descheduler-linux-amd64
+
+platform:
+  arch: amd64
+  os: linux
+
+steps:
+  - name: build
+    image: golang:1.13.0
+    commands:
+      - cd cmd/descheduler && go build
+    environment:
+      GOARCH: amd64
+      GOOS: linux
+
+  - name: publish
+    image: plugins/docker:18
+    settings:
+      auto_tag: true
+      auto_tag_suffix: linux-amd64
+      dockerfile: Dockerfile
+      repo: lehtux/descheduler
+      username:
+        from_secret: username
+      password:
+        from_secret: password
+    when:
+      event:
+        - tag
+
+---
+kind: pipeline
+type: kubernetes
+name: descheduler-linux-arm64
+
+platform:
+  arch: arm64
+  os: linux
+
+steps:
+  - name: build
+    image: golang:1.13.0
+    commands:
+      - cd cmd/descheduler && go build
+    environment:
+      GOARCH: arm64
+      GOOS: linux
+
+  - name: publish
+    image: plugins/docker:18
+    settings:
+      auto_tag: true
+      auto_tag_suffix: linux-arm64
+      dockerfile: Dockerfile
+      repo: lehtux/descheduler
+      username:
+        from_secret: username
+      password:
+        from_secret: password
+
+trigger:
+  event:
+    - tag
+
+depends_on:
+  - descheduler-linux-amd64
+
+---
+kind: pipeline
+type: kubernetes
+name: manifest
+
+steps:
+  - name: publish
+    image: plugins/manifest:1.2
+    settings:
+      auto_tag: true
+      ignore_missing: true
+      spec: manifest.tmpl
+      username:
+        from_secret: username
+      password:
+        from_secret: password
+
+trigger:
+  event:
+    - tag
+
+depends_on:
+  - descheduler-linux-arm64
+  - descheduler-linux-amd64
